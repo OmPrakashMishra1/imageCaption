@@ -15,8 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
-# Render provides PORT env var automatically (default 10000)
-EXPOSE 10000
+# Hugging Face Spaces uses port 7860
+ENV PORT=7860
+EXPOSE 7860
 
 # Start Flask
 CMD ["python", "backend/app.py"]
