@@ -119,7 +119,10 @@
                     const data = await res.json();
                     res.ok ? setCaption(data.caption || "No caption generated.") : setError(data.error || "Backend error.");
                 } catch {
-                    setError("Cannot reach the backend. Is Flask running on port 5000?");
+                    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+                    setError(isLocal
+                        ? "Cannot reach the backend. Is Flask running on port 5000?"
+                        : "Server error — the model may have run out of memory. Try again or check server logs.");
                 } finally {
                     setLoading(false);
                 }
