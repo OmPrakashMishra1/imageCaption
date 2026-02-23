@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImageCaption — AI Image Captioning</title>
+    <meta name="description" content="Upload an image and get an AI-generated caption instantly." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        const { useState, useRef } = React;
+
+        const BACKEND = "http://localhost:5000";
+
+        const TEAM = [
+            { name: "Om Prakash Mishra",      roll: "23051283", role: "Tech Lead & Development Lead", initials: "OM", gradient: "linear-gradient(135deg, #a855f7, #6366f1)" },
+            { name: "Annada Shankar Maity",   roll: "23051245", role: "AI & ML",                      initials: "AM", gradient: "linear-gradient(135deg, #06b6d4, #3b82f6)" },
+            { name: "Kishalay Seren",          roll: "2305626",  role: "AI & ML & Development",        initials: "KS", gradient: "linear-gradient(135deg, #f59e0b, #ef4444)" },
+            { name: "Suman Kumar Singha",      roll: "2305822",  role: "R & D Lead",                   initials: "SS", gradient: "linear-gradient(135deg, #10b981, #06b6d4)" },
+            { name: "Priyanshu Dalei",         roll: "2305626",  role: "R & D",                        initials: "PD", gradient: "linear-gradient(135deg, #ec4899, #a855f7)" },
+            { name: "Aryan Raj",               roll: "2305607",  role: "R & D",                        initials: "AR", gradient: "linear-gradient(135deg, #f97316, #f59e0b)" },
+        ];
+
+        const TECH = [
+            { icon: "🐍", label: "Python",     color: "#3b82f6" },
+            { icon: "🧠", label: "TensorFlow", color: "#f97316" },
+            { icon: "📷", label: "VGG16",      color: "#a855f7" },
+            { icon: "🔁", label: "LSTM",       color: "#10b981" },
+            { icon: "⚡", label: "Flask",      color: "#06b6d4" },
+            { icon: "⚛️", label: "React",      color: "#3b82f6" },
+            { icon: "🎨", label: "CSS3",       color: "#ec4899" },
+        ];
+
+        /* ─── Background ────────────────────────────────────── */
+        function Background() {
+            return (
+                <div className="bg" aria-hidden="true">
+                    <div className="bg-grid" />
+                    <div className="orb orb-purple" />
+                    <div className="orb orb-cyan" />
+                    <div className="orb orb-pink" />
+                    <div className="orb orb-amber" />
+                </div>
+            );
+        }
+
+        /* ─── Nav ────────────────────────────────────────────── */
+        function Nav({ page, setPage }) {
+            return (
+                <nav className="nav">
+                    <div className="nav-inner">
+                        <div className="nav-brand">
+                            <span className="brand-gem">◆</span>
+                            ImageCaption
+                        </div>
+                        <div className="nav-pills">
+                            {["home", "about"].map(p => (
+                                <button
+                                    key={p}
+                                    className={`nav-pill ${page === p ? "active" : ""}`}
+                                    onClick={() => setPage(p)}
+                                >{p.charAt(0).toUpperCase() + p.slice(1)}</button>
+                            ))}
+                        </div>
+                    </div>
+                </nav>
+            );
+        }
+
+        /* ─── Home ───────────────────────────────────────────── */
+        function Home() {
+            const [preview, setPreview]   = useState(null);
+            const [file, setFile]         = useState(null);
+            const [caption, setCaption]   = useState("");
+            const [loading, setLoading]   = useState(false);
+            const [error, setError]       = useState("");
+            const [dragOver, setDragOver] = useState(false);
+            const inputRef                = useRef(null);
+
+            function handleFile(f) {
+                if (!f) return;
+                setFile(f);
+                setPreview(URL.createObjectURL(f));
+                setCaption("");
+                setError("");
+            }
+
+            function onDrop(e) {
+                e.preventDefault();
+                setDragOver(false);
+                const f = e.dataTransfer.files[0];
+                if (f && f.type.startsWith("image/")) handleFile(f);
+            }
+
+            async function generate() {
+                if (!file) return;
+                setLoading(true);
+                setCaption("");
+                setError("");
+                try {
+                    const fd = new FormData();
+                    fd.append("image", file);
+                    const res  = await fetch(`${BACKEND}/caption`, { method: "POST", body: fd });
+                    const data = await res.json();
+                    res.ok ? setCaption(data.caption || "No caption generated.") : setError(data.error || "Backend error.");
+                } catch {
+                    setError("Cannot reach the backend. Is Flask running on port 5000?");
+                } finally {
+                    setLoading(false);
+                }
+            }
+
+            return (
+                <main className="page">
+                    <header className="hero">
+                        <span className="hero-chip">
+                            <span className="chip-dot" />
+                            Powered by Deep Learning
+                        </span>
+                        <h1 className="hero-h1">
+                            Describe any image<br/>
+                            with <span className="rainbow">AI magic</span>
+                        </h1>
+                        <p className="hero-p">
+                            Upload a photo and our VGG16 + LSTM neural network generates a
+                            human-readable caption — in seconds.
+                        </p>
+                    </header>
+
+                    {/* ── Upload Card ── */}
+                    <div className="glass-card upload-card">
+                        <div
+                            className={`dropzone ${dragOver ? "dz-active" : ""} ${preview ? "dz-filled" : ""}`}
+                            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                            onDragLeave={() => setDragOver(false)}
+                            onDrop={onDrop}
+                            onClick={() => !preview && inputRef.current?.click()}
+                        >
+                            <input ref={inputRef} type="file" accept="image/*" hidden onChange={e => handleFile(e.target.files[0])} />
+                            {preview ? (
+                                <img src={preview} alt="Uploaded" className="preview" />
+                            ) : (
+                                <div className="dz-inner">
+                                    <div className="dz-ring">
+                                        <svg width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+                                        </svg>
+                                    </div>
+                                    <p className="dz-title">Drag & drop your image here</p>
+                                    <p className="dz-or">— or —</p>
+                                    <span className="dz-browse">Browse Files</span>
+                                    <p className="dz-fmt">JPG · JPEG · PNG</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {preview && (
+                            <div className="btn-row">
+                                <button className="btn-main" onClick={generate} disabled={loading}>
+                                    {loading ? <><span className="spin"/> Analyzing…</> : <>✦ Generate Caption</>}
+                                </button>
+                                <button className="btn-sec" onClick={() => { setFile(null); setPreview(null); setCaption(""); setError(""); }}>
+                                    Clear
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {caption && (
+                        <div className="glass-card result-card pop-in">
+                            <div className="res-top">
+                                <span className="res-dot" />
+                                <span className="res-label">Generated Caption</span>
+                            </div>
+                            <p className="res-text">{caption}</p>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="glass-card err-card pop-in">⚠️ {error}</div>
+                    )}
+                </main>
+            );
+        }
+
+        /* ─── About ──────────────────────────────────────────── */
+        function About() {
+            return (
+                <main className="page about-page">
+                    <header className="hero">
+                        <span className="hero-chip">
+                            <span className="chip-dot" />
+                            Mini Project
+                        </span>
+                        <h1 className="hero-h1">
+                            About <span className="rainbow">This Project</span>
+                        </h1>
+                        <p className="hero-p">
+                            An AI-powered image captioning system using a VGG16&nbsp;+&nbsp;LSTM
+                            deep learning architecture, built with Flask and React.
+                        </p>
+                    </header>
+
+                    {/* Institute */}
+                    <div className="glass-card inst-card">
+                        <div className="inst-left">
+                            <span className="inst-emoji">🎓</span>
+                        </div>
+                        <div>
+                            <h2 className="inst-name">Kalinga Institute of Industrial Technology</h2>
+                            <p className="inst-loc">Bhubaneswar, Odisha</p>
+                        </div>
+                    </div>
+
+                    {/* Team */}
+                    <section className="sect">
+                        <div className="sect-bar"><span className="sect-line"/><h3 className="sect-title">Our Team</h3><span className="sect-line"/></div>
+                        <div className="team-grid">
+                            {TEAM.map((m, i) => (
+                                <div className="glass-card team-card" key={i}>
+                                    <div className="tm-avatar" style={{background: m.gradient}}>{m.initials}</div>
+                                    <div className="tm-info">
+                                        <span className="tm-name">{m.name}</span>
+                                        <span className="tm-roll">{m.roll}</span>
+                                        <span className="tm-role">{m.role}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* Tech */}
+                    <section className="sect">
+                        <div className="sect-bar"><span className="sect-line"/><h3 className="sect-title">Tech Stack</h3><span className="sect-line"/></div>
+                        <div className="tech-row">
+                            {TECH.map(t => (
+                                <span className="tech-chip" key={t.label} style={{"--tc": t.color}}>
+                                    <span className="tech-ico">{t.icon}</span>{t.label}
+                                </span>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* Architecture */}
+                    <section className="sect">
+                        <div className="sect-bar"><span className="sect-line"/><h3 className="sect-title">How It Works</h3><span className="sect-line"/></div>
+                        <div className="steps">
+                            {[
+                                { num: "01", color: "#3b82f6", title: "Upload", desc: "Drop an image into the browser" },
+                                { num: "02", color: "#a855f7", title: "Extract", desc: "VGG16 extracts 4096-d visual features" },
+                                { num: "03", color: "#f59e0b", title: "Decode", desc: "LSTM generates words one by one" },
+                                { num: "04", color: "#10b981", title: "Caption", desc: "A human-readable description appears" },
+                            ].map(s => (
+                                <div className="step-card" key={s.num}>
+                                    <span className="step-num" style={{color: s.color}}>{s.num}</span>
+                                    <div>
+                                        <span className="step-title" style={{color: s.color}}>{s.title}</span>
+                                        <span className="step-desc">{s.desc}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </main>
+            );
+        }
+
+        /* ─── App ────────────────────────────────────────────── */
+        function App() {
+            const [page, setPage] = useState("home");
+            return (
+                <div className="app">
+                    <Background />
+                    <Nav page={page} setPage={setPage} />
+                    {page === "home" ? <Home /> : <About />}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+</body>
+</html>
