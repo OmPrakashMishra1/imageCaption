@@ -22,7 +22,10 @@
     <script type="text/babel" data-type="module">
         const { useState, useRef } = React;
 
-        const BACKEND = "http://localhost:5000";
+        // Auto-detect: use current origin in production, localhost for dev
+        const BACKEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+            ? "http://localhost:5000"
+            : window.location.origin;
 
         const TEAM = [
             { name: "Om Prakash Mishra",      roll: "23051283", role: "Tech Lead & Development Lead", initials: "OM", gradient: "linear-gradient(135deg, #a855f7, #6366f1)" },

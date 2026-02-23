@@ -4,11 +4,16 @@ from flask_cors import CORS
 from utils import load_model_and_tokenizer, extract_features, generate_caption
 
 # ── App setup ────────────────────────────────────────────────────────────
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+BACKEND_DIR  = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.join(BACKEND_DIR, "..", "frontend")
+
+# Normalise so it works in Docker and locally
+FRONTEND_DIR = os.path.normpath(FRONTEND_DIR)
+
 app = Flask(__name__, static_folder=FRONTEND_DIR)
 CORS(app)
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+UPLOAD_FOLDER = os.path.join(BACKEND_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Load model & tokenizer once at startup
@@ -59,4 +64,5 @@ def serve_static(filename):
 
 # ── Entry point ──────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
