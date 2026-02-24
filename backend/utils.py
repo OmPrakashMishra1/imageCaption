@@ -17,10 +17,19 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 # ── Paths ────────────────────────────────────────────────────────────────
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR   = os.path.join(BASE_DIR, "model")
-# Prefer the patched model (in git repo), fall back to original (local only)
-_patched = os.path.join(MODEL_DIR, "best_model_patched.h5")
+# Prefer the original model if it exists and is not a small LFS pointer
 _original = os.path.join(MODEL_DIR, "best_model.h5")
-MODEL_PATH  = _patched if os.path.exists(_patched) else _original
+_patched = os.path.join(MODEL_DIR, "best_model_patched.h5")
+
+def _is_valid_h5(p):
+    return os.path.exists(p) and os.path.getsize(p) > 1024 * 1024
+
+if _is_valid_h5(_original):
+    MODEL_PATH = _original
+elif _is_valid_h5(_patched):
+    MODEL_PATH = _patched
+else:
+    MODEL_PATH = _original  # Fallback to whatever exists or will fail gracefully
 TOKENIZER_PATH = os.path.join(MODEL_DIR, "tokenizer.pkl")
 
 # ── Architecture constants (read from the saved h5 config) ───────────────
@@ -177,3 +186,72 @@ def generate_caption(
         last_word  = word
 
     return in_text.replace("startseq", "").replace("endseq", "").strip()
+
+
+def generate_caption_beam(
+    model,
+    tokenizer,
+    photo_features: np.ndarray,
+    max_length: int = MAX_LENGTH,
+    beam_width: int = 3,
+) -> str:
+    """
+    Beam-search decode a caption given VGG16 photo features.
+
+    Keeps the top `beam_width` candidate sequences at each step and
+    returns the highest-scoring complete sequence.
+    """
+    global _reverse_lookup
+    if _reverse_lookup is None:
+        _reverse_lookup = {idx: word for word, idx in tokenizer.word_index.items()}
+
+    # Each beam is (cumulative_log_prob, token_list)
+    beams = [(0.0, ["startseq"])]
+    completed = []
+
+    for _ in range(max_length):
+        all_candidates = []
+
+        for score, seq in beams:
+            # If this beam already ended, carry it forward
+            if seq[-1] == "endseq":
+                completed.append((score, seq))
+                continue
+
+            # Encode & predict
+            encoded = tokenizer.texts_to_sequences([" ".join(seq)])[0]
+            padded  = pad_sequences([encoded], maxlen=max_length)
+            yhat    = model.predict([photo_features, padded], verbose=0)[0]
+
+            # Take top beam_width candidates
+            top_indices = np.argsort(yhat)[-beam_width:]
+
+            for idx in top_indices:
+                word = _reverse_lookup.get(int(idx))
+                if word is None:
+                    continue
+                # Skip endseq as the very first generated word
+                if len(seq) == 1 and word == "endseq":
+                    continue
+                # Prevent immediate word repetition
+                if word == seq[-1]:
+                    continue
+
+                new_score = score + float(np.log(yhat[idx] + 1e-12))
+                all_candidates.append((new_score, seq + [word]))
+
+        if not all_candidates:
+            break
+
+        # Keep top beam_width candidates
+        all_candidates.sort(key=lambda x: x[0], reverse=True)
+        beams = all_candidates[:beam_width]
+
+    # Add any remaining incomplete beams to completed
+    completed.extend(beams)
+
+    # Pick the best sequence (highest log-probability, normalised by length)
+    best_seq = max(completed, key=lambda x: x[0] / max(len(x[1]) - 1, 1))[1]
+
+    caption = " ".join(best_seq)
+    return caption.replace("startseq", "").replace("endseq", "").strip()

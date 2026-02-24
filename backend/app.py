@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from utils import load_model_and_tokenizer, extract_features, generate_caption
+from utils import load_model_and_tokenizer, extract_features, generate_caption, generate_caption_beam
 
 # ── App setup ────────────────────────────────────────────────────────────
 BACKEND_DIR  = os.path.dirname(os.path.abspath(__file__))
@@ -36,8 +36,12 @@ def caption():
 
     try:
         features = extract_features(filepath)
-        caption_text = generate_caption(caption_model, tokenizer, features)
-        return jsonify({"caption": caption_text})
+        method = request.args.get("method", "greedy").lower()
+        if method == "beam":
+            caption_text = generate_caption_beam(caption_model, tokenizer, features)
+        else:
+            caption_text = generate_caption(caption_model, tokenizer, features)
+        return jsonify({"caption": caption_text, "method": method})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
