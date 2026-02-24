@@ -90,8 +90,8 @@
             const [loading, setLoading]   = useState(false);
             const [error, setError]       = useState("");
             const [dragOver, setDragOver] = useState(false);
-            const [useBeam, setUseBeam]   = useState(false);
-            const [method, setMethod]     = useState("");
+            const [useBeamSearch, setUseBeamSearch] = useState(true);
+            const [beamWidth, setBeamWidth] = useState(3);
             const inputRef                = useRef(null);
 
             function handleFile(f) {
@@ -117,15 +117,11 @@
                 try {
                     const fd = new FormData();
                     fd.append("image", file);
-                    const url = useBeam ? `${BACKEND}/caption?method=beam` : `${BACKEND}/caption`;
-                    const res  = await fetch(url, { method: "POST", body: fd });
+                    fd.append("beam_search", useBeamSearch);
+                    fd.append("beam_width", beamWidth);
+                    const res  = await fetch(`${BACKEND}/caption`, { method: "POST", body: fd });
                     const data = await res.json();
-                    if (res.ok) {
-                        setCaption(data.caption || "No caption generated.");
-                        setMethod(data.method || "greedy");
-                    } else {
-                        setError(data.error || "Backend error.");
-                    }
+                    res.ok ? setCaption(data.caption || "No caption generated.") : setError(data.error || "Backend error.");
                 } catch {
                     const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
                     setError(isLocal
@@ -181,18 +177,40 @@
                         </div>
 
                         {preview && (
-                            <div className="btn-row">
-                                <button className="btn-main" onClick={generate} disabled={loading}>
-                                    {loading ? <><span className="spin"/> Analyzing…</> : <>✦ Generate Caption</>}
-                                </button>
-                                <button className="btn-sec" onClick={() => { setFile(null); setPreview(null); setCaption(""); setError(""); setMethod(""); }}>
-                                    Clear
-                                </button>
-                                <label className="beam-toggle" title="Beam search explores multiple caption candidates for higher quality (slower)">
-                                    <span className="beam-label">Beam Search</span>
-                                    <input type="checkbox" checked={useBeam} onChange={e => setUseBeam(e.target.checked)} />
-                                    <span className="beam-slider" />
-                                </label>
+                            <div>
+                                <div className="options-row">
+                                    <div className="toggle-group">
+                                        <label className="toggle-label">Beam Search</label>
+                                        <button 
+                                            className={`toggle-switch ${useBeamSearch ? "active" : ""}`}
+                                            onClick={() => setUseBeamSearch(!useBeamSearch)}
+                                            role="switch"
+                                            aria-checked={useBeamSearch}
+                                        >
+                                            <span className="toggle-slider" />
+                                        </button>
+                                    </div>
+                                    <div className="beam-width-control">
+                                        <label htmlFor="beam-width-input">Beam Width:</label>
+                                        <input 
+                                            id="beam-width-input"
+                                            type="number" 
+                                            min="1" 
+                                            max="10" 
+                                            value={beamWidth} 
+                                            onChange={(e) => setBeamWidth(parseInt(e.target.value) || 3)}
+                                            className="beam-width-input"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="btn-row">
+                                    <button className="btn-main" onClick={generate} disabled={loading}>
+                                        {loading ? <><span className="spin"/> Analyzing…</> : <>✦ Generate Caption</>}
+                                    </button>
+                                    <button className="btn-sec" onClick={() => { setFile(null); setPreview(null); setCaption(""); setError(""); }}>
+                                        Clear
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -202,7 +220,6 @@
                             <div className="res-top">
                                 <span className="res-dot" />
                                 <span className="res-label">Generated Caption</span>
-                                {method && <span className="res-method">{method === "beam" ? "🔍 Beam Search" : "⚡ Greedy"}</span>}
                             </div>
                             <p className="res-text">{caption}</p>
                         </div>

@@ -36,12 +36,18 @@ def caption():
 
     try:
         features = extract_features(filepath)
-        method = request.args.get("method", "greedy").lower()
-        if method == "beam":
-            caption_text = generate_caption_beam(caption_model, tokenizer, features)
+        
+        # Get parameters from request
+        use_beam_search = request.form.get("beam_search", "true").lower() == "true"
+        beam_width = int(request.form.get("beam_width", 3))
+        
+        # Generate caption using beam search or greedy decoding
+        if use_beam_search:
+            caption_text = generate_caption_beam(caption_model, tokenizer, features, beam_width=beam_width)
         else:
             caption_text = generate_caption(caption_model, tokenizer, features)
-        return jsonify({"caption": caption_text, "method": method})
+            
+        return jsonify({"caption": caption_text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:

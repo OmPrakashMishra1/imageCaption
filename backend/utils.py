@@ -17,19 +17,12 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 # ── Paths ────────────────────────────────────────────────────────────────
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR   = os.path.join(BASE_DIR, "model")
-# Prefer the original model if it exists and is not a small LFS pointer
-_original = os.path.join(MODEL_DIR, "best_model.h5")
+
+# Prefer the patched model (in git repo), fall back to original (local only)
 _patched = os.path.join(MODEL_DIR, "best_model_patched.h5")
+_original = os.path.join(MODEL_DIR, "best_model.h5")
+MODEL_PATH  = _patched if os.path.exists(_patched) else _original
 
-def _is_valid_h5(p):
-    return os.path.exists(p) and os.path.getsize(p) > 1024 * 1024
-
-if _is_valid_h5(_original):
-    MODEL_PATH = _original
-elif _is_valid_h5(_patched):
-    MODEL_PATH = _patched
-else:
-    MODEL_PATH = _original  # Fallback to whatever exists or will fail gracefully
 TOKENIZER_PATH = os.path.join(MODEL_DIR, "tokenizer.pkl")
 
 # ── Architecture constants (read from the saved h5 config) ───────────────
